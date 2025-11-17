@@ -5,24 +5,69 @@ import { useRouter } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Check, Sparkles, Crown, ArrowLeft, Zap } from "lucide-react"
+import { Check, Sparkles, Crown, ArrowLeft, Zap, Loader2, AlertCircle } from "lucide-react"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 export default function SubscriptionPage() {
   const router = useRouter()
   const [selectedPlan, setSelectedPlan] = useState<"free" | "premium-monthly" | "premium-yearly" | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubscribe = (plan: "free" | "premium-monthly" | "premium-yearly") => {
+  const handleSubscribe = async (plan: "free" | "premium-monthly" | "premium-yearly") => {
     setSelectedPlan(plan)
+    setError(null)
     
-    // Salvar plano no localStorage
-    const isPremium = plan !== "free"
-    localStorage.setItem("harmoni-premium", JSON.stringify(isPremium))
-    localStorage.setItem("harmoni-plan", plan)
+    // Se for plano gratuito, apenas salvar no localStorage
+    if (plan === "free") {
+      localStorage.setItem("harmoni-premium", "false")
+      localStorage.setItem("harmoni-plan", plan)
+      
+      setTimeout(() => {
+        router.push("/")
+      }, 1500)
+      return
+    }
+
+    // Para plano Premium Anual, redirecionar diretamente para o link de assinatura
+    if (plan === "premium-yearly") {
+      localStorage.setItem("harmoni-pending-plan", plan)
+      window.location.href = "https://www.mercadopago.com.br/subscriptions/checkout?preapproval_plan_id=4e9fbe10cd8845fda21d7db1af72ccee"
+      return
+    }
+
+    // Para plano mensal, usar a API de criação de preferência
+    setLoading(true)
     
-    // Simular processamento
-    setTimeout(() => {
-      router.push("/")
-    }, 1500)
+    try {
+      const response = await fetch("/api/create-preference", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({ plan })
+      })
+
+      if (!response.ok) {
+        const data = await response.json()
+        console.error("Erro da API:", data)
+        throw new Error(data.message || data.error || "Erro ao criar preferência de pagamento")
+      }
+
+      const data = await response.json()
+      
+      // Salvar informação do plano antes de redirecionar
+      localStorage.setItem("harmoni-pending-plan", plan)
+      
+      // Redirecionar para o checkout do Mercado Pago
+      window.location.href = data.init_point
+    } catch (error) {
+      console.error("Erro ao processar pagamento:", error)
+      const errorMessage = error instanceof Error ? error.message : "Erro ao processar pagamento. Tente novamente."
+      setError(errorMessage)
+      setSelectedPlan(null)
+      setLoading(false)
+    }
   }
 
   const plans = [
@@ -124,6 +169,14 @@ export default function SubscriptionPage() {
           </p>
         </div>
 
+        {/* Error Alert */}
+        {error && (
+          <Alert variant="destructive" className="mb-6 max-w-3xl mx-auto">
+            <AlertCircle className="h-4 w-4" />
+            <AlertDescription>{error}</AlertDescription>
+          </Alert>
+        )}
+
         {/* Plans Grid */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-12">
           {plans.map((plan) => {
@@ -195,7 +248,7 @@ export default function SubscriptionPage() {
                   {/* CTA Button */}
                   <Button
                     onClick={() => handleSubscribe(plan.id as any)}
-                    disabled={isSelected}
+                    disabled={isSelected || loading}
                     className={`w-full h-12 text-base font-semibold ${
                       plan.popular || plan.bestValue
                         ? `bg-gradient-to-r ${plan.color} hover:opacity-90 text-white`
@@ -203,7 +256,12 @@ export default function SubscriptionPage() {
                     }`}
                     variant={plan.popular || plan.bestValue ? "default" : "outline"}
                   >
-                    {isSelected ? "Processando..." : plan.id === "free" ? "Começar Grátis" : "Assinar Agora"}
+                    {isSelected || loading ? (
+                      <>
+                        <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                        Processando...
+                      </>
+                    ) : plan.id === "free" ? "Começar Grátis" : "Assinar Agora"}
                   </Button>
                 </CardContent>
               </Card>
@@ -242,13 +300,20 @@ export default function SubscriptionPage() {
                 O mensal oferece flexibilidade total sem fidelidade.
               </p>
             </div>
+            <div>
+              <h4 className="font-semibold mb-2">O pagamento é seguro?</h4>
+              <p className="text-sm text-gray-600 dark:text-gray-400">
+                Sim! Utilizamos o Mercado Pago, uma das plataformas de pagamento mais seguras do Brasil. 
+                Seus dados são protegidos com criptografia de ponta.
+              </p>
+            </div>
           </CardContent>
         </Card>
 
         {/* Trust Section */}
         <div className="mt-12 text-center">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            🔒 Pagamento seguro • ✨ Sem taxas ocultas • 💯 Satisfação garantida
+            🔒 Pagamento seguro via Mercado Pago • ✨ Sem taxas ocultas • 💯 Satisfação garantida
           </p>
         </div>
       </main>

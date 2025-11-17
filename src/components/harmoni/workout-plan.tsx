@@ -49,6 +49,7 @@ export function WorkoutPlan({ healthProfile, workoutType, onClose, isPremium = f
   const [nutritionImage, setNutritionImage] = useState<string | null>(null)
   const [isAnalyzing, setIsAnalyzing] = useState(false)
   const [nutritionAnalysis, setNutritionAnalysis] = useState<NutritionAnalysis | null>(null)
+  const [showDailyCheckin, setShowDailyCheckin] = useState(false)
 
   // Calcular IMC para ajustar intensidade
   const bmi = healthProfile.weight / Math.pow(healthProfile.height / 100, 2)
@@ -68,8 +69,13 @@ export function WorkoutPlan({ healthProfile, workoutType, onClose, isPremium = f
 
   const weeklyFrequency = getWeeklyFrequency()
 
-  // Função para completar exercício
+  // Função para completar exercício - RESTRITO A PREMIUM
   const completeExercise = (exerciseName: string) => {
+    if (!isPremium) {
+      alert("Este recurso é exclusivo para assinantes Premium! Faça upgrade para desbloquear o check-in de exercícios.")
+      return
+    }
+    
     const exerciseId = `${workoutType}-${exerciseName}-week${currentWeek}`
     
     if (!completedExercises.has(exerciseId)) {
@@ -77,6 +83,15 @@ export function WorkoutPlan({ healthProfile, workoutType, onClose, isPremium = f
       newCompleted.add(exerciseId)
       setCompletedExercises(newCompleted)
     }
+  }
+
+  // Função para check-in diário - RESTRITO A PREMIUM
+  const handleDailyCheckin = () => {
+    if (!isPremium) {
+      alert("O check-in diário é exclusivo para assinantes Premium! Faça upgrade para desbloquear.")
+      return
+    }
+    setShowDailyCheckin(true)
   }
 
   // Função para capturar foto
@@ -903,6 +918,59 @@ export function WorkoutPlan({ healthProfile, workoutType, onClose, isPremium = f
           </CardHeader>
         </Card>
 
+        {/* Check-in Diário - RESTRITO A PREMIUM */}
+        <Card className="border-0 shadow-xl bg-gradient-to-r from-blue-500/10 to-cyan-500/10 dark:from-blue-500/20 dark:to-cyan-500/20">
+          <CardHeader>
+            <div className="flex items-center justify-between flex-wrap gap-3">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-cyan-500 flex items-center justify-center">
+                  <CheckCircle2 className="w-6 h-6 text-white" />
+                </div>
+                <div>
+                  <CardTitle className="flex items-center gap-2 text-lg sm:text-xl flex-wrap">
+                    Check-in Diário
+                    {!isPremium && (
+                      <Badge className="bg-gradient-to-r from-amber-400 to-orange-500 text-white border-0 text-xs">
+                        Premium
+                      </Badge>
+                    )}
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    Registre seu progresso diário
+                  </CardDescription>
+                </div>
+              </div>
+              {!isPremium && (
+                <Lock className="w-5 h-5 text-blue-500" />
+              )}
+            </div>
+          </CardHeader>
+          <CardContent>
+            {!isPremium ? (
+              <div className="text-center py-8 space-y-4">
+                <Lock className="w-16 h-16 text-blue-500 mx-auto" />
+                <div>
+                  <h3 className="font-bold text-lg mb-2">Recurso Exclusivo Premium</h3>
+                  <p className="text-gray-600 dark:text-gray-400 mb-4 text-sm sm:text-base">
+                    Desbloqueie o check-in diário e acompanhe seu progresso completo
+                  </p>
+                  <Button className="bg-gradient-to-r from-blue-400 to-cyan-500 hover:from-blue-500 hover:to-cyan-600 text-white">
+                    Fazer Upgrade para Premium
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <Button
+                onClick={handleDailyCheckin}
+                className="w-full bg-gradient-to-r from-blue-400 to-cyan-500 hover:from-blue-500 hover:to-cyan-600 text-white"
+              >
+                <CheckCircle2 className="w-4 h-4 mr-2" />
+                Fazer Check-in Hoje
+              </Button>
+            )}
+          </CardContent>
+        </Card>
+
         {/* Workout Days */}
         {currentWeekPlan.map((day, dayIndex) => (
           <Card key={dayIndex} className="border-0 shadow-lg">
@@ -948,6 +1016,12 @@ export function WorkoutPlan({ healthProfile, workoutType, onClose, isPremium = f
                                 {isCompleted && (
                                   <Badge className="bg-green-500 text-white text-xs">
                                     Completo
+                                  </Badge>
+                                )}
+                                {!isPremium && (
+                                  <Badge className="bg-amber-500 text-white text-xs flex items-center gap-1">
+                                    <Lock className="w-3 h-3" />
+                                    Premium
                                   </Badge>
                                 )}
                               </h4>
@@ -1005,14 +1079,27 @@ export function WorkoutPlan({ healthProfile, workoutType, onClose, isPremium = f
                             </ul>
                           </div>
 
-                          {/* Botão de Completar */}
+                          {/* Botão de Completar - RESTRITO A PREMIUM */}
                           {!isCompleted && (
                             <Button
                               onClick={() => completeExercise(exercise.name)}
-                              className="w-full bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white"
+                              className={`w-full ${
+                                isPremium 
+                                  ? 'bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white'
+                                  : 'bg-gray-300 hover:bg-gray-400 text-gray-600 cursor-not-allowed'
+                              }`}
                             >
-                              <CheckCircle2 className="w-4 h-4 mr-2" />
-                              Marcar como Completo
+                              {isPremium ? (
+                                <>
+                                  <CheckCircle2 className="w-4 h-4 mr-2" />
+                                  Marcar como Completo
+                                </>
+                              ) : (
+                                <>
+                                  <Lock className="w-4 h-4 mr-2" />
+                                  Check-in Premium
+                                </>
+                              )}
                             </Button>
                           )}
                         </div>
