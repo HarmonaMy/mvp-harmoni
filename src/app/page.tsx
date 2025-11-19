@@ -1,18 +1,21 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Activity, Brain, Moon, TrendingUp, Plus, Calendar, Sparkles, User, MessageSquare, Crown } from "lucide-react"
+import { Activity, Brain, Moon, TrendingUp, Plus, Calendar, Sparkles, User, MessageSquare, Crown, LogOut } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
-import { Progress } from "@/components/ui/progress"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import Link from "next/link"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
+
+// Importações diretas dos componentes
 import { OnboardingFlow } from "@/components/harmoni/onboarding-flow"
 import { DailyCheckIn } from "@/components/harmoni/daily-check-in"
 import { ProgressCharts } from "@/components/harmoni/progress-charts"
 import { PersonalizedPlan } from "@/components/harmoni/personalized-plan"
-import { HealthProfileEditor, type HealthProfile } from "@/components/harmoni/health-profile"
-import { JournalNotes, type JournalNote } from "@/components/harmoni/journal-notes"
-import Link from "next/link"
+import { HealthProfileEditor } from "@/components/harmoni/health-profile"
+import { JournalNotes } from "@/components/harmoni/journal-notes"
 
 export type UserProfile = {
   name: string
@@ -33,7 +36,27 @@ export type DailyEntry = {
   meditation: boolean
 }
 
+export type HealthProfile = {
+  weight: number
+  height: number
+  age: number
+  gender: "male" | "female"
+  targetWeight: number
+}
+
+export type JournalNote = {
+  id: string
+  date: string
+  mood: "great" | "good" | "okay" | "bad" | "terrible"
+  title: string
+  content: string
+  tags: string[]
+}
+
 export default function HarmoniApp() {
+  const router = useRouter()
+  const { user, userData, isLoading: authLoading, isConfigured, signOut } = useAuth()
+  const [mounted, setMounted] = useState(false)
   const [hasProfile, setHasProfile] = useState(false)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
   const [healthProfile, setHealthProfile] = useState<HealthProfile | null>(null)
@@ -42,53 +65,101 @@ export default function HarmoniApp() {
   const [showCheckIn, setShowCheckIn] = useState(false)
   const [showHealthProfile, setShowHealthProfile] = useState(false)
   const [isPremium, setIsPremium] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  // Garantir que o componente só renderize no cliente
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  // Redirecionar para login se não estiver autenticado E Supabase estiver configurado
+  useEffect(() => {
+    if (!authLoading && !user && isConfigured) {
+      router.push("/auth")
+    }
+  }, [user, authLoading, isConfigured, router])
 
   // Carregar dados do localStorage
   useEffect(() => {
-    const savedProfile = localStorage.getItem("harmoni-profile")
-    const savedHealthProfile = localStorage.getItem("harmoni-health-profile")
-    const savedEntries = localStorage.getItem("harmoni-entries")
-    const savedNotes = localStorage.getItem("harmoni-journal-notes")
-    const savedPremium = localStorage.getItem("harmoni-premium")
-    
-    if (savedProfile) {
-      setUserProfile(JSON.parse(savedProfile))
-      setHasProfile(true)
-    }
-    
-    if (savedHealthProfile) {
-      setHealthProfile(JSON.parse(savedHealthProfile))
-    }
-    
-    if (savedEntries) {
-      setDailyEntries(JSON.parse(savedEntries))
-    }
+    if (!mounted) return
 
-    if (savedNotes) {
-      setJournalNotes(JSON.parse(savedNotes))
-    }
+    try {
+      const savedProfile = localStorage.getItem("harmoni-profile")
+      const savedHealthProfile = localStorage.getItem("harmoni-health-profile")
+      const savedEntries = localStorage.getItem("harmoni-entries")
+      const savedNotes = localStorage.getItem("harmoni-journal-notes")
+      const savedPremium = localStorage.getItem("harmoni-premium")
+      
+      if (savedProfile) {
+        setUserProfile(JSON.parse(savedProfile))
+        setHasProfile(true)
+      }
+      
+      if (savedHealthProfile) {
+        setHealthProfile(JSON.parse(savedHealthProfile))
+      }
+      
+      if (savedEntries) {
+        setDailyEntries(JSON.parse(savedEntries))
+      }
 
-    if (savedPremium) {
-      setIsPremium(JSON.parse(savedPremium))
+      if (savedNotes) {
+        setJournalNotes(JSON.parse(savedNotes))
+      }
+
+      if (savedPremium) {
+        setIsPremium(JSON.parse(savedPremium))
+      }
+
+      // Verificar status de pagamento do usuário
+      if (userData?.payment_status === 'paid') {
+        setIsPremium(true)
+        localStorage.setItem("harmoni-premium", JSON.stringify(true))
+      }
+    } catch (error) {
+      console.error("Erro ao carregar dados:", error)
+    } finally {
+      setIsLoading(false)
     }
-  }, [])
+  }, [mounted, userData])
+
+  // 🔒 PROTEÇÃO: Redirecionar para assinatura se não for premium
+  useEffect(() => {
+    if (!mounted || isLoading || authLoading) return
+    
+    // Só redireciona se tiver Supabase configurado E usuário autenticado
+    if (hasProfile && !isPremium && isConfigured && user) {
+      router.push("/subscription")
+    }
+  }, [hasProfile, isPremium, router, isLoading, mounted, authLoading, isConfigured, user])
 
   const handleProfileComplete = (profile: UserProfile) => {
     setUserProfile(profile)
     setHasProfile(true)
-    localStorage.setItem("harmoni-profile", JSON.stringify(profile))
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("harmoni-profile", JSON.stringify(profile))
+    }
+    
+    // Redirecionar para página de assinatura após completar o onboarding (se Supabase configurado)
+    if (isConfigured && user) {
+      router.push("/subscription")
+    }
   }
 
   const handleHealthProfileSave = (profile: HealthProfile) => {
     setHealthProfile(profile)
-    localStorage.setItem("harmoni-health-profile", JSON.stringify(profile))
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("harmoni-health-profile", JSON.stringify(profile))
+    }
     setShowHealthProfile(false)
   }
 
   const handleDailyEntry = (entry: DailyEntry) => {
     const updatedEntries = [...dailyEntries, entry]
     setDailyEntries(updatedEntries)
-    localStorage.setItem("harmoni-entries", JSON.stringify(updatedEntries))
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("harmoni-entries", JSON.stringify(updatedEntries))
+    }
     setShowCheckIn(false)
   }
 
@@ -99,13 +170,27 @@ export default function HarmoniApp() {
     }
     const updatedNotes = [...journalNotes, newNote]
     setJournalNotes(updatedNotes)
-    localStorage.setItem("harmoni-journal-notes", JSON.stringify(updatedNotes))
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("harmoni-journal-notes", JSON.stringify(updatedNotes))
+    }
   }
 
   const handleDeleteNote = (id: string) => {
     const updatedNotes = journalNotes.filter(note => note.id !== id)
     setJournalNotes(updatedNotes)
-    localStorage.setItem("harmoni-journal-notes", JSON.stringify(updatedNotes))
+    if (typeof window !== 'undefined') {
+      localStorage.setItem("harmoni-journal-notes", JSON.stringify(updatedNotes))
+    }
+  }
+
+  const handleSignOut = async () => {
+    await signOut()
+    // Limpar dados locais
+    localStorage.removeItem("harmoni-profile")
+    localStorage.removeItem("harmoni-health-profile")
+    localStorage.removeItem("harmoni-entries")
+    localStorage.removeItem("harmoni-journal-notes")
+    localStorage.removeItem("harmoni-premium")
   }
 
   // Verificar se já fez check-in hoje
@@ -147,8 +232,67 @@ export default function HarmoniApp() {
     return Math.round((sum / recent.length) * 10)
   }
 
+  // Não renderizar nada até estar montado no cliente
+  if (!mounted || isLoading || authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20">
+        <div className="text-center">
+          <Sparkles className="w-12 h-12 mx-auto text-purple-500 animate-pulse mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Carregando...</p>
+        </div>
+      </div>
+    )
+  }
+
+  // Se Supabase não está configurado, mostrar aviso
+  if (!isConfigured) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-purple-50 via-blue-50 to-pink-50 dark:from-gray-900 dark:via-purple-900/20 dark:to-blue-900/20 p-4">
+        <Card className="max-w-md w-full border-0 shadow-2xl">
+          <CardHeader>
+            <div className="w-16 h-16 mx-auto mb-4 rounded-full bg-gradient-to-br from-orange-400 to-red-500 flex items-center justify-center">
+              <Sparkles className="w-8 h-8 text-white" />
+            </div>
+            <CardTitle className="text-center text-2xl">Configuração Necessária</CardTitle>
+            <CardDescription className="text-center">
+              Configure o Supabase para usar o Harmoni
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="p-4 rounded-lg bg-orange-50 dark:bg-orange-900/20 border border-orange-200 dark:border-orange-800">
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                <strong>Passo 1:</strong> Vá em <strong>Configurações do Projeto</strong> → <strong>Integrações</strong>
+              </p>
+              <p className="text-sm text-gray-700 dark:text-gray-300 mb-3">
+                <strong>Passo 2:</strong> Clique em <strong>Conectar Supabase</strong>
+              </p>
+              <p className="text-sm text-gray-700 dark:text-gray-300">
+                <strong>Passo 3:</strong> Autorize a conexão e volte aqui!
+              </p>
+            </div>
+            <div className="text-center">
+              <p className="text-xs text-gray-500 dark:text-gray-400">
+                Após conectar, recarregue esta página
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
+    )
+  }
+
+  // Se não estiver autenticado, não renderizar nada (useEffect já redireciona)
+  if (!user) {
+    return null
+  }
+
   if (!hasProfile) {
     return <OnboardingFlow onComplete={handleProfileComplete} />
+  }
+
+  // 🔒 BLOQUEIO: Se não for premium, não mostra o app
+  if (!isPremium) {
+    return null // O useEffect já redireciona para /subscription
   }
 
   if (showCheckIn) {
@@ -192,6 +336,15 @@ export default function HarmoniApp() {
                 <span className="hidden sm:inline">{isPremium ? "Premium" : "Assinar"}</span>
               </Button>
             </Link>
+            <Button
+              onClick={handleSignOut}
+              variant="outline"
+              size="icon"
+              className="border-gray-300 hover:bg-gray-100 dark:hover:bg-gray-800"
+              title="Sair"
+            >
+              <LogOut className="w-4 h-4" />
+            </Button>
             {!hasCheckedInToday && (
               <Button 
                 onClick={() => setShowCheckIn(true)}

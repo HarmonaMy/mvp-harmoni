@@ -5,6 +5,7 @@ import Script from "next/script";
 import "./globals.css";
 // Import all available fonts for AI usage
 import "../lib/fonts";
+import { Providers } from "@/components/providers";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -19,6 +20,18 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Harmoni - Seu Bem-estar em Equilíbrio",
   description: "Acompanhe sua saúde física e mental com planos personalizados",
+  manifest: "/manifest.json",
+  themeColor: "#10b981",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Harmoni",
+  },
+  viewport: {
+    width: "device-width",
+    initialScale: 1,
+    maximumScale: 1,
+  },
 };
 
 export default function RootLayout({
@@ -30,11 +43,14 @@ export default function RootLayout({
     <html lang="pt-BR">
       <head>
         <Script src="/lasy-bridge.js" strategy="beforeInteractive" />
+        <link rel="apple-touch-icon" href="https://k6hrqrxuu8obbfwn.public.blob.vercel-storage.com/temp/66b77d52-2a5a-4b53-bde1-25af80483237.png" />
       </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        {children}
+        <Providers>
+          {children}
+        </Providers>
       </body>
     </html>
   );

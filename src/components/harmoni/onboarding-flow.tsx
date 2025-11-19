@@ -1,12 +1,14 @@
 "use client"
 
 import { useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Slider } from "@/components/ui/slider"
 import { Checkbox } from "@/components/ui/checkbox"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Sparkles, Activity, Brain, Moon, ArrowRight, Check } from "lucide-react"
 import type { UserProfile } from "@/app/page"
 
@@ -15,8 +17,14 @@ type OnboardingFlowProps = {
 }
 
 export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
+  const router = useRouter()
   const [step, setStep] = useState(1)
   const [name, setName] = useState("")
+  const [weight, setWeight] = useState("")
+  const [height, setHeight] = useState("")
+  const [age, setAge] = useState("")
+  const [gender, setGender] = useState("")
+  const [targetWeight, setTargetWeight] = useState("")
   const [goals, setGoals] = useState({
     energy: 5,
     focus: 5,
@@ -40,11 +48,27 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
   }
 
   const handleComplete = () => {
-    onComplete({
+    // Salvar perfil antes de redirecionar
+    const profile = {
       name,
       goals,
       preferences
-    })
+    }
+    
+    // Salvar no localStorage
+    localStorage.setItem("harmoni-profile", JSON.stringify(profile))
+    
+    // Redirecionar para página de assinatura
+    router.push("/subscription")
+  }
+
+  const isStep1Valid = () => {
+    return name.trim() && 
+           weight && parseFloat(weight) > 0 && 
+           height && parseFloat(height) > 0 && 
+           age && parseInt(age) > 0 && 
+           gender && 
+           targetWeight && parseFloat(targetWeight) > 0
   }
 
   return (
@@ -81,31 +105,109 @@ export function OnboardingFlow({ onComplete }: OnboardingFlowProps) {
         </CardHeader>
 
         <CardContent className="space-y-6">
-          {/* Step 1: Nome */}
+          {/* Step 1: Dados Pessoais */}
           {step === 1 && (
             <div className="space-y-6 animate-in fade-in duration-500">
               <div className="text-center space-y-2">
-                <h3 className="text-xl font-semibold">Como podemos te chamar?</h3>
+                <h3 className="text-xl font-semibold">Conte-nos sobre você</h3>
                 <p className="text-sm text-gray-600 dark:text-gray-400">
                   Vamos personalizar sua experiência
                 </p>
               </div>
               
-              <div className="space-y-2">
-                <Label htmlFor="name">Seu nome</Label>
-                <Input
-                  id="name"
-                  placeholder="Digite seu nome"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="text-lg h-12"
-                  autoFocus
-                />
+              <div className="space-y-4">
+                {/* Nome */}
+                <div className="space-y-2">
+                  <Label htmlFor="name">Seu nome</Label>
+                  <Input
+                    id="name"
+                    placeholder="Digite seu nome"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    className="h-11"
+                    autoFocus
+                  />
+                </div>
+
+                {/* Peso e Altura */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="weight">Peso (kg)</Label>
+                    <Input
+                      id="weight"
+                      type="number"
+                      placeholder="Ex: 70"
+                      value={weight}
+                      onChange={(e) => setWeight(e.target.value)}
+                      className="h-11"
+                      min="1"
+                      step="0.1"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="height">Altura (cm)</Label>
+                    <Input
+                      id="height"
+                      type="number"
+                      placeholder="Ex: 170"
+                      value={height}
+                      onChange={(e) => setHeight(e.target.value)}
+                      className="h-11"
+                      min="1"
+                      step="1"
+                    />
+                  </div>
+                </div>
+
+                {/* Idade e Gênero */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="age">Idade</Label>
+                    <Input
+                      id="age"
+                      type="number"
+                      placeholder="Ex: 25"
+                      value={age}
+                      onChange={(e) => setAge(e.target.value)}
+                      className="h-11"
+                      min="1"
+                      max="120"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="gender">Gênero</Label>
+                    <Select value={gender} onValueChange={setGender}>
+                      <SelectTrigger className="h-11">
+                        <SelectValue placeholder="Selecione" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="male">Masculino</SelectItem>
+                        <SelectItem value="female">Feminino</SelectItem>
+                        <SelectItem value="other">Outro</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
+
+                {/* Peso Desejado */}
+                <div className="space-y-2">
+                  <Label htmlFor="targetWeight">Peso desejado (kg)</Label>
+                  <Input
+                    id="targetWeight"
+                    type="number"
+                    placeholder="Ex: 65"
+                    value={targetWeight}
+                    onChange={(e) => setTargetWeight(e.target.value)}
+                    className="h-11"
+                    min="1"
+                    step="0.1"
+                  />
+                </div>
               </div>
 
               <Button
                 onClick={() => setStep(2)}
-                disabled={!name.trim()}
+                disabled={!isStep1Valid()}
                 className="w-full h-12 bg-gradient-to-r from-purple-500 to-pink-500 hover:from-purple-600 hover:to-pink-600 text-white text-base"
               >
                 Continuar
